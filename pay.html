@@ -82,7 +82,7 @@
         <div class="card pad stack">
           <div><label for="name">Your name</label><input id="name" autocomplete="name" maxlength="60" placeholder="So ${esc(order.for_name)} knows who paid"></div>
           <div><label for="email">Your email</label><input id="email" type="email" inputmode="email" autocomplete="email" maxlength="120" placeholder="For your Paystack receipt"></div>
-          ${error ? `<div class="err" role="alert">${esc(error)}</div>` : ""}
+          <div class="err" id="err" role="alert"${error ? "" : " hidden"}>${esc(error)}</div>
           <button class="btn" id="pay">Pay ${esc(money(order.total))}</button>
           <div class="lock">🔒 Secured by Paystack. Ages never sees your card or PIN.</div>
         </div>
@@ -90,22 +90,25 @@
       </div>`;
     const name = document.getElementById("name"), email = document.getElementById("email"), btn = document.getElementById("pay");
     try { name.value = localStorage.getItem("ages.payer.name") || ""; email.value = localStorage.getItem("ages.payer.email") || ""; } catch (_) {}
+    const err = document.getElementById("err");
+    const say = (msg, field) => { err.textContent = msg; err.hidden = false; if (field) field.focus(); };
     btn.onclick = async () => {
       const n = name.value.trim(), e = email.value.trim();
-      if (n.length < 2) return form("Enter your name.");
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e)) { const v = { n, e }; form("Enter a valid email for your receipt."); restore(v); return; }
+      if (n.length < 2) return say("Enter your name.", name);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e)) return say("Enter a valid email for your receipt.", email);
+      err.hidden = true;
       try { localStorage.setItem("ages.payer.name", n); localStorage.setItem("ages.payer.email", e); } catch (_) {}
       btn.disabled = true; btn.innerHTML = `<span class="spin"></span>Opening Paystack…`;
       try {
         const r = await agesFriendPay({ action: "start", code, name: n, email: e });
         location.href = r.url;
-      } catch (err) {
-        if (err.code === "paid") { await load(); return; }
-        if (err.code === "expired") return expired();
-        form(err.message); restore({ n, e });
+      } catch (x) {
+        if (x.code === "paid") { await load(); return; }
+        if (x.code === "expired") return expired();
+        btn.disabled = false; btn.textContent = `Pay ${money(order.total)}`;
+        say(x.message);
       }
     };
-    function restore(v) { document.getElementById("name").value = v.n; document.getElementById("email").value = v.e; }
   }
 
   async function checking() {

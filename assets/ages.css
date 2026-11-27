@@ -40,7 +40,7 @@ h2 { font-size: 17px; font-weight: 700; }
 .btn {
   display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 54px; padding: 0 20px;
   border: 0; border-radius: 999px; background: linear-gradient(135deg, #D24A10, var(--accent)); color: #fff;
-  font: 700 16px/1 inherit; font-family: inherit; text-decoration: none; cursor: pointer;
+  font-family: inherit; font-size: 16px; font-weight: 700; line-height: 1; text-decoration: none; cursor: pointer;
   box-shadow: 0 8px 20px rgba(194, 65, 12, .28); transition: transform .15s ease, opacity .15s ease;
 }
 .btn:active { transform: scale(.98); }
