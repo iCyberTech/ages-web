@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["G3N59ZFJ3P.com.ages.shop"],
+        "components": [
+          { "/": "/p", "?": { "id": "?*" }, "comment": "A shared product opens in the app. /pay is NOT listed: a friend's pay link always opens the web page." }
+        ]
+      }
+    ]
+  }
+}

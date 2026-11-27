@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pay for an Ages order</title>
+<meta name="description" content="A friend asked you to pay for their Ages order. Pay by mobile money or card, no app needed.">
+<meta property="og:title" content="Can you pay for my Ages order?">
+<meta property="og:description" content="Pay by mobile money or card, secured by Paystack. No app or account needed.">
+<meta property="og:image" content="https://ages.devofori.com/assets/icon-256.png">
+<meta property="og:site_name" content="Ages">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https://ljinrrgnqghbidxvfxlk.supabase.co data:; connect-src https://ljinrrgnqghbidxvfxlk.supabase.co; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; form-action 'none'">
+<meta name="theme-color" content="#FAF6F0">
+<link rel="icon" href="/assets/favicon.png">
+<link rel="stylesheet" href="/assets/ages.css">
+</head>
+<body>
+<main class="wrap">
+  <a class="top" href="/"><img src="/assets/logo-128.png" alt=""><span>Ages</span></a>
+  <div id="view">
+    <div class="skeleton" style="height:34px;width:80%"></div>
+    <div class="skeleton" style="height:220px;margin-top:18px"></div>
+    <div class="skeleton" style="height:54px;margin-top:18px;border-radius:999px"></div>
+  </div>
+  <footer>Ages by DevOfori · <a href="https://www.devofori.com/terms">Terms</a> · <a href="https://www.devofori.com/privacy">Privacy</a></footer>
+</main>
+<script src="/assets/ages.js"></script>
+<script>
+(() => {
+  const view = document.getElementById("view");
+  const qs = new URLSearchParams(location.search);
+  const code = qs.get("c") || "";
+  const back = qs.get("back") === "1";
+  let order = null;
+
+  const money = (n) => agesMoney(n, order.currency, order.symbol);
+  const timeLeft = () => {
+    const ms = new Date(order.expires_at) - new Date();
+    if (ms <= 0) return null;
+    const h = Math.floor(ms / 3600000), m = Math.max(1, Math.floor((ms % 3600000) / 60000));
+    return h > 0 ? `${h} h ${m} min` : `${m} min`;
+  };
+
+  function message(icon, cls, title, body, extra = "") {
+    view.innerHTML = `<div class="card pad center stack fade"><div class="hero ${cls}">${icon}</div><h1>${title}</h1><p class="muted">${body}</p>${extra}</div>`;
+  }
+  const paid = () => message("✓", "ok", "Paid. Thank you!",
+    `${esc(order.paid_by ? order.paid_by.split(" ")[0] + ", y" : "Y")}ou paid for ${esc(order.for_name)}'s order #${esc(order.number)}. We've told them, and the seller is getting it ready. Paystack emailed you a receipt.`,
+    `<p class="muted small">Want to shop too?</p>${STORE_BUTTONS}`);
+  const expired = () => message("⏱", "off", "This pay link has expired",
+    `Nobody paid within 24 hours, so ${esc(order ? order.for_name + "'s" : "the")} order was cancelled. Nobody was charged. Ask them for a new link if you'd still like to pay.`);
+  const missing = () => message("?", "off", "Pay link not found", "This link isn't complete or no longer works. Ask your friend to send it again.");
+
+  function itemsHTML() {
+    return order.items.map((i) => `
+      <div class="item">
+        ${i.image ? `<img src="${esc(i.image)}" alt="">` : `<div class="ph"></div>`}
+        <div><div class="t">${esc(i.title)}</div><div class="o">${i.option ? esc(i.option) + " · " : ""}Qty ${i.qty}</div></div>
+        <div class="p">${esc(money(i.price * i.qty))}</div>
+      </div>`).join("");
+  }
+
+  function form(error = "") {
+    const left = timeLeft();
+    if (!left) return expired();
+    view.innerHTML = `
+      <div class="stack fade">
+        <div>
+          <h1>${esc(order.for_name)} asked you to pay for their order</h1>
+          <p class="muted" style="margin:8px 0 0">Order #${esc(order.number)}. Pay by mobile money or card. No app or account needed.</p>
+        </div>
+        <div class="card pad">
+          ${itemsHTML()}
+          <hr>
+          <div class="row"><span class="muted">Items</span><span>${esc(money(order.subtotal))}</span></div>
+          <div class="row"><span class="muted">Delivery</span><span>${order.delivery > 0 ? esc(money(order.delivery)) : "Free"}</span></div>
+          <hr>
+          <div class="row total"><span>Total</span><b>${esc(money(order.total))}</b></div>
+        </div>
+        <div class="card pad stack">
+          <div><label for="name">Your name</label><input id="name" autocomplete="name" maxlength="60" placeholder="So ${esc(order.for_name)} knows who paid"></div>
+          <div><label for="email">Your email</label><input id="email" type="email" inputmode="email" autocomplete="email" maxlength="120" placeholder="For your Paystack receipt"></div>
+          ${error ? `<div class="err" role="alert">${esc(error)}</div>` : ""}
+          <button class="btn" id="pay">Pay ${esc(money(order.total))}</button>
+          <div class="lock">🔒 Secured by Paystack. Ages never sees your card or PIN.</div>
+        </div>
+        <p class="muted small center">The items are held for ${esc(left)}. You only pay for what's listed above; the delivery address stays private.</p>
+      </div>`;
+    const name = document.getElementById("name"), email = document.getElementById("email"), btn = document.getElementById("pay");
+    try { name.value = localStorage.getItem("ages.payer.name") || ""; email.value = localStorage.getItem("ages.payer.email") || ""; } catch (_) {}
+    btn.onclick = async () => {
+      const n = name.value.trim(), e = email.value.trim();
+      if (n.length < 2) return form("Enter your name.");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e)) { const v = { n, e }; form("Enter a valid email for your receipt."); restore(v); return; }
+      try { localStorage.setItem("ages.payer.name", n); localStorage.setItem("ages.payer.email", e); } catch (_) {}
+      btn.disabled = true; btn.innerHTML = `<span class="spin"></span>Opening Paystack…`;
+      try {
+        const r = await agesFriendPay({ action: "start", code, name: n, email: e });
+        location.href = r.url;
+      } catch (err) {
+        if (err.code === "paid") { await load(); return; }
+        if (err.code === "expired") return expired();
+        form(err.message); restore({ n, e });
+      }
+    };
+    function restore(v) { document.getElementById("name").value = v.n; document.getElementById("email").value = v.e; }
+  }
+
+  async function checking() {
+    message(`<span class="spin" style="border-color:rgba(194,65,12,.25);border-top-color:#C2410C;width:34px;height:34px"></span>`, "wait",
+      "Confirming your payment", "This takes a few seconds. Please keep this page open.");
+    for (let i = 0; i < 6; i++) {
+      try {
+        const r = await agesFriendPay({ action: "check", code });
+        if (r.state === "paid") { await load(true); return; }
+        if (r.state === "expired") return expired();
+        if (r.payment === "failed" || r.payment === "abandoned") break;
+      } catch (_) {}
+      await new Promise((res) => setTimeout(res, 2500));
+    }
+    history.replaceState(null, "", `?c=${encodeURIComponent(code)}`);
+    await load(true);
+    if (order && order.state === "open") form("We haven't seen the payment go through. If you were charged, this page updates in a moment; otherwise try again.");
+  }
+
+  async function load(quiet = false) {
+    try {
+      order = await agesFriendPay({ action: "view", code });
+    } catch (e) {
+      if (e.code === "not_found") return missing();
+      return message("!", "off", "Couldn't load this order", "Check your connection and refresh the page.");
+    }
+    if (order.state === "paid") return paid();
+    if (order.state === "expired") return expired();
+    if (!quiet) form();
+  }
+
+  if (!/^[2-9a-km-zA-HJ-NP-Z]{12}$/.test(code)) return missing();
+  if (back) load(true).then(() => { if (order && order.state === "open") checking(); });
+  else load();
+})();
+</script>
+</body>
+</html>

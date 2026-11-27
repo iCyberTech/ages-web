@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shared from Ages</title>
+<meta name="description" content="Someone shared an item from Ages: shop fashion, phones, beauty and home from local sellers.">
+<meta property="og:title" content="Shared from Ages">
+<meta property="og:description" content="Tap to see the item, then shop it in the Ages app.">
+<meta property="og:image" content="https://ages.devofori.com/assets/icon-256.png">
+<meta property="og:site_name" content="Ages">
+<meta name="apple-itunes-app" content="app-id=6829285377">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https://ljinrrgnqghbidxvfxlk.supabase.co data:; connect-src https://ljinrrgnqghbidxvfxlk.supabase.co; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'">
+<meta name="theme-color" content="#FAF6F0">
+<link rel="icon" href="/assets/favicon.png">
+<link rel="stylesheet" href="/assets/ages.css">
+</head>
+<body>
+<main class="wrap">
+  <a class="top" href="/"><img src="/assets/logo-128.png" alt=""><span>Ages</span></a>
+  <div id="view">
+    <div class="skeleton" style="aspect-ratio:1/1"></div>
+    <div class="skeleton" style="height:28px;margin-top:18px;width:70%"></div>
+    <div class="skeleton" style="height:24px;margin-top:10px;width:35%"></div>
+  </div>
+  <footer>Ages by DevOfori · <a href="https://www.devofori.com/privacy">Privacy</a></footer>
+</main>
+<script src="/assets/ages.js"></script>
+<script>
+(async () => {
+  const view = document.getElementById("view");
+  const id = Number(new URLSearchParams(location.search).get("id"));
+  const gone = (title, body) => {
+    view.innerHTML = `<div class="card pad center stack fade"><div class="hero off">🛍️</div><h1>${title}</h1><p class="muted">${body}</p>${STORE_BUTTONS}</div>`;
+  };
+  if (!Number.isInteger(id) || id <= 0) return gone("Item not found", "This link isn't complete. Ask your friend to share it again, or find it in the Ages app.");
+  try {
+    const p = await agesRPC("public_product", { p_id: id });
+    if (!p) return gone("This item isn't available", "It may have sold out or been taken down. There's plenty more in the Ages app.");
+    document.title = `${p.title} · Ages`;
+    const img = agesPhoto(p.image);
+    const was = p.original_price && Number(p.original_price) > Number(p.price) ? `<span class="was">${esc(agesMoney(p.original_price, p.currency, p.symbol))}</span>` : "";
+    view.innerHTML = `
+      <div class="stack fade">
+        ${img ? `<img class="photo" src="${esc(img)}" alt="${esc(p.title)}">` : `<div class="photo"></div>`}
+        <div>
+          ${p.sold_out ? `<span class="pill">Sold out</span>` : ""}
+          <h1 style="margin-top:6px">${esc(p.title)}</h1>
+          <div style="margin-top:6px"><span class="price">${esc(agesMoney(p.price, p.currency, p.symbol))}</span>${was}</div>
+          ${p.seller ? `<p class="muted small" style="margin:6px 0 0">Sold by ${esc(p.seller)}</p>` : ""}
+        </div>
+        ${p.blurb ? `<p class="muted" style="margin-top:10px">${esc(p.blurb)}</p>` : ""}
+        <div class="card pad center stack">
+          <h2>Shop it on Ages</h2>
+          <p class="muted small" style="margin:6px 0 0">Get the app to buy it, pay with mobile money or card, and track it to your door. Have Ages already? Open this link on your phone and it opens right in the app.</p>
+          ${STORE_BUTTONS}
+        </div>
+      </div>`;
+  } catch (e) {
+    gone("Couldn't load this item", "Check your connection and refresh the page.");
+  }
+})();
+</script>
+</body>
+</html>
